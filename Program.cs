@@ -80,9 +80,13 @@ namespace dbdb {
                 var k = Console.ReadKey(intercept: true);
                 if (k.Key == ConsoleKey.Enter) break;
                 if (k.Key == ConsoleKey.Backspace) {
-                    if (pw.Length > 0) pw.Remove(pw.Length - 1, 1);
+                    if (pw.Length > 0) {
+                        pw.Remove(pw.Length - 1, 1);
+                        Console.Write("\b \b");
+                    }
                 } else if (k.KeyChar != '\0') {
                     pw.Append(k.KeyChar);
+                    Console.Write('*');
                 }
             }
             Console.WriteLine();
