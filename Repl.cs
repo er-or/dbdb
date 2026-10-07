@@ -19,6 +19,9 @@ namespace dbdb {
         private static readonly Regex ExportViewJsonRegex =
             new Regex(@"^EXPORT\s+VIEW\s+(\S+)\s+AS\s+JSON\s+TO\s+(\S+)\s*;?$", RegexOptions.IgnoreCase);
 
+        private static readonly Regex ExportQueryJsonRegex =
+            new Regex(@"^EXPORT\s+QUERY\s+""([^""]*)""\s+AS\s+JSON\s+TO\s+(\S+)\s*;?$", RegexOptions.IgnoreCase);
+
         private static readonly Regex ShowCommandsRegex =
             new Regex(@"^SHOW\s+COMMANDS(?:\s+LIKE\s+'([^']*)')?\s*;?$", RegexOptions.IgnoreCase);
 
@@ -114,6 +117,21 @@ namespace dbdb {
                         string filePath = exportViewMatch.Groups[2].Value.Trim('\'', '"', ';');
                         try {
                             Exporter.ExportViewAsJson(_session, _cfg.Type, viewName, filePath);
+                        } catch (Exception ex) {
+                            ConsoleHelper.WriteError("ERROR: " + ex.Message);
+                        }
+                        continue;
+                    }
+                }
+
+                // EXPORT QUERY "sql" AS JSON TO file
+                if (!continuation) {
+                    var exportQueryMatch = ExportQueryJsonRegex.Match(trimmed);
+                    if (exportQueryMatch.Success) {
+                        string query = exportQueryMatch.Groups[1].Value;
+                        string filePath = exportQueryMatch.Groups[2].Value.Trim('\'', '"', ';');
+                        try {
+                            Exporter.ExportQueryAsJson(_session, query, filePath);
                         } catch (Exception ex) {
                             ConsoleHelper.WriteError("ERROR: " + ex.Message);
                         }

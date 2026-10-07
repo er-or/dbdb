@@ -144,16 +144,6 @@ namespace dbdb {
             Console.ResetColor();
 
             Console.WriteLine();
-            Console.WriteLine("IN-SESSION COMMANDS:");
-            WriteRow(@"quit / exit / \q", "End the session");
-            WriteRow(@"\c",               "Clear multi-line buffer");
-            WriteRow(@"\s",               "Show connection status");
-            WriteRow("USE <db>",          "Switch database");
-            WriteRow("EXPORT TABLE <t> TO <file>",           "Dump table schema + data as mysqldump-style SQL");
-            WriteRow("EXPORT VIEW <v> AS JSON TO <file>",    "Dump a view's data as JSON");
-            WriteRow("SHOW COMMANDS [LIKE 'pattern']",       "List dbdb's built-in commands");
-
-            Console.WriteLine();
             Console.WriteLine("STATEMENT TERMINATOR:");
             WriteRow(";",  "Terminates a statement (both engines)");
             WriteRow("GO", "Terminates a batch  (mssql only)");

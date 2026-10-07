@@ -52,7 +52,17 @@ namespace dbdb {
         internal static void ExportViewAsJson(DbSession session, DbType type, string viewName, string filePath) {
             string qView = QuoteIdent(type, viewName);
             var (columns, rows) = session.ExecuteQuery($"SELECT * FROM {qView};");
+            WriteRowsAsJson(columns, rows, filePath);
+            ConsoleHelper.WriteSuccess($"Exported {rows.Count} row(s) from view '{viewName}' to '{filePath}'.");
+        }
 
+        internal static void ExportQueryAsJson(DbSession session, string query, string filePath) {
+            var (columns, rows) = session.ExecuteQuery(query);
+            WriteRowsAsJson(columns, rows, filePath);
+            ConsoleHelper.WriteSuccess($"Exported {rows.Count} row(s) from query to '{filePath}'.");
+        }
+
+        private static void WriteRowsAsJson(string[] columns, List<object?[]> rows, string filePath) {
             var list = new List<Dictionary<string, object?>>(rows.Count);
             foreach (var row in rows) {
                 var obj = new Dictionary<string, object?>();
@@ -62,7 +72,6 @@ namespace dbdb {
 
             string json = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(filePath, json);
-            ConsoleHelper.WriteSuccess($"Exported {rows.Count} row(s) from view '{viewName}' to '{filePath}'.");
         }
 
         private static string? TryGetCreateTableDdl(DbSession session, DbType type, string tableName) {

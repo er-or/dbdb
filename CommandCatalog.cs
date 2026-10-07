@@ -32,6 +32,7 @@ namespace dbdb {
             ("USE <database>",                           "Switch the active database"),
             ("EXPORT TABLE <table> TO <file>",           "Export a table's schema + data as mysqldump-style SQL"),
             ("EXPORT VIEW <view> AS JSON TO <file>",     "Export a view's data as JSON"),
+            ("EXPORT QUERY \"<sql>\" AS JSON TO <file>", "Export an ad-hoc query's results as JSON"),
             (@"\s / status",                             "Show the current connection status"),
             (@"\c / clear buffer",                       "Clear the multi-line input buffer"),
             (@"quit / exit / \q",                        "End the session"),
