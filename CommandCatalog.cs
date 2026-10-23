@@ -11,7 +11,7 @@ namespace dbdb {
     internal static class CommandCatalog {
 
         private static readonly (string Command, string Description)[] Commands = {
-            ("SHOW DATABASES / SHOW SCHEMAS",            "List all databases on the server"),
+            ("SHOW DATABASES / SHOW SCHEMAS [LIKE 'pattern']", "List databases on the server"),
             ("SHOW TABLES [LIKE 'pattern']",             "List tables in the current database"),
             ("SHOW FULL TABLES [LIKE 'pattern']",        "List tables with their type (table/view)"),
             ("SHOW VIEWS [LIKE 'pattern']",              "List views in the current database"),
@@ -30,6 +30,7 @@ namespace dbdb {
             ("DESCRIBE / DESC <name>",                   "Describe a table's columns, or a procedure's parameters"),
             ("DESCRIBE PROC / PROCEDURE <name>",         "Describe a stored procedure's parameters"),
             ("USE <database>",                           "Switch the active database"),
+            ("SAVE SESSION <name>",                      "Save the current connection as a named profile (see `dbdb restore <name>`)"),
             ("EXPORT TABLE <table> TO <file>",           "Export a table's schema + data as mysqldump-style SQL"),
             ("EXPORT VIEW <view> AS JSON TO <file>",     "Export a view's data as JSON"),
             ("EXPORT QUERY \"<sql>\" AS JSON TO <file>", "Export an ad-hoc query's results as JSON"),

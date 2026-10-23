@@ -19,12 +19,30 @@ namespace dbdb {
             Config cfg;
             string? parseError;
             if (isRestore) {
-                var restored = SessionStore.Load();
-                if (restored == null) {
-                    ConsoleHelper.WriteError("Error: No saved session found. Connect normally first to create one.");
+                string[] rest = args[1..];
+                string? sessionName = null;
+                if (rest.Length > 0 && !rest[0].StartsWith("-")) {
+                    sessionName = rest[0];
+                    rest = rest[1..];
+                }
+
+                if (sessionName != null && !SessionStore.IsValidName(sessionName)) {
+                    ConsoleHelper.WriteError($"Error: '{sessionName}' is not a valid session name.");
+                    PrintAvailableSessions();
                     return 1;
                 }
-                (cfg, parseError) = Config.Parse(args[1..], restored);
+
+                var restored = SessionStore.Load(sessionName);
+                if (restored == null) {
+                    if (sessionName != null) {
+                        ConsoleHelper.WriteError($"Error: No saved session named '{sessionName}' found.");
+                        PrintAvailableSessions();
+                    } else {
+                        ConsoleHelper.WriteError("Error: No saved session found. Connect normally first to create one.");
+                    }
+                    return 1;
+                }
+                (cfg, parseError) = Config.Parse(rest, restored);
             } else {
                 (cfg, parseError) = Config.Parse(args);
             }
@@ -93,6 +111,15 @@ namespace dbdb {
             return pw.ToString();
         }
 
+        static void PrintAvailableSessions() {
+            string[] names = SessionStore.ListNames();
+            if (names.Length == 0) {
+                Console.Error.WriteLine("No named sessions saved yet. Use SAVE SESSION <name> while connected to create one.");
+            } else {
+                Console.Error.WriteLine("Available sessions: " + string.Join(", ", names));
+            }
+        }
+
         static bool IsHelpFlag(string s) =>
             s == "-?" || s == "--help" || s == "-help" || s == "--h";
 
@@ -126,7 +153,7 @@ namespace dbdb {
 
             Console.WriteLine();
             Console.WriteLine("USAGE:");
-            WriteRow("restore",             "Reconnect using the last saved session (prompts for password if needed)");
+            WriteRow("restore [name]",      "Reconnect using the last saved session, or a named one (prompts for password if needed)");
             WriteRow("-t, --type <type>",   "Engine: mysql | mssql | sqlite  (required)");
             WriteRow("-h, --host <host>",   "Server hostname  (default: localhost)");
             WriteRow("-u, --user <user>",   "Username");
@@ -145,6 +172,7 @@ namespace dbdb {
             Console.WriteLine("  dbdb -t mysql  -h db.example.com -u app -pSecret mydb");
             Console.WriteLine("  dbdb -t sqlite -d C:\\path\\to\\myfile.db");
             Console.WriteLine("  dbdb restore");
+            Console.WriteLine("  dbdb restore myMySqlDb");
             Console.ResetColor();
 
             Console.WriteLine();

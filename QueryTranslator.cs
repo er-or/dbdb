@@ -12,13 +12,15 @@ namespace dbdb {
             string trimmed = input.Trim();
             string upper = trimmed.ToUpperInvariant();
 
-            // SHOW DATABASES  ->  SELECT name FROM sys.databases ORDER BY name
-            if (Regex.IsMatch(upper, @"^SHOW\s+DATABASES\s*;?$"))
-                return "SELECT name FROM sys.databases ORDER BY name;";
-
-            // SHOW SCHEMAS  -> same
-            if (Regex.IsMatch(upper, @"^SHOW\s+SCHEMAS\s*;?$"))
-                return "SELECT name FROM sys.databases ORDER BY name;";
+            // SHOW DATABASES / SHOW SCHEMAS [LIKE 'pattern']  ->  SELECT name FROM sys.databases ORDER BY name
+            var showDatabases = Regex.Match(trimmed, @"^SHOW\s+(?:DATABASES|SCHEMAS)(?:\s+LIKE\s+'([^']*)')?\s*;?$", RegexOptions.IgnoreCase);
+            if (showDatabases.Success) {
+                string like = showDatabases.Groups[1].Value;
+                if (string.IsNullOrEmpty(like))
+                    return "SELECT name FROM sys.databases ORDER BY name;";
+                string escaped = like.Replace("'", "''");
+                return $"SELECT name FROM sys.databases WHERE name LIKE '{escaped}' ORDER BY name;";
+            }
 
             // SHOW TABLES [LIKE 'pattern']  ->  SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES ...
             var showTables = Regex.Match(trimmed, @"^SHOW\s+TABLES(?:\s+LIKE\s+'([^']*)')?\s*;?$", RegexOptions.IgnoreCase);
@@ -189,8 +191,8 @@ namespace dbdb {
                 return $"SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '{escaped}' ORDER BY name;";
             }
 
-            // SHOW DATABASES / SHOW SCHEMAS
-            if (Regex.IsMatch(upper, @"^SHOW\s+(DATABASES|SCHEMAS)\s*;?$"))
+            // SHOW DATABASES / SHOW SCHEMAS [LIKE 'pattern'] - SQLite has one database per file
+            if (Regex.IsMatch(upper, @"^SHOW\s+(DATABASES|SCHEMAS)(\s+LIKE\s+'[^']*')?\s*;?$"))
                 return "SELECT 'Only one database per file in SQLite.' AS note;";
 
             // SHOW VIEWS [LIKE 'pattern']

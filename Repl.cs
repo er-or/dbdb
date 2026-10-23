@@ -25,6 +25,9 @@ namespace dbdb {
         private static readonly Regex ShowCommandsRegex =
             new Regex(@"^SHOW\s+COMMANDS(?:\s+LIKE\s+'([^']*)')?\s*;?$", RegexOptions.IgnoreCase);
 
+        private static readonly Regex SaveSessionRegex =
+            new Regex(@"^SAVE\s+SESSION\s+(\S+)\s*;?$", RegexOptions.IgnoreCase);
+
         private readonly DbSession _session;
         private readonly Config _cfg;
 
@@ -74,6 +77,22 @@ namespace dbdb {
                     if (showCommandsMatch.Success) {
                         string? like = showCommandsMatch.Groups[1].Success ? showCommandsMatch.Groups[1].Value : null;
                         CommandCatalog.Print(like);
+                        continue;
+                    }
+                }
+
+                // SAVE SESSION <name> - persist the current connection under a
+                // named profile for later use with `dbdb restore <name>`.
+                if (!continuation) {
+                    var saveSessionMatch = SaveSessionRegex.Match(trimmed);
+                    if (saveSessionMatch.Success) {
+                        string name = saveSessionMatch.Groups[1].Value.Trim('`', '\'', '"', ';');
+                        if (!SessionStore.IsValidName(name)) {
+                            ConsoleHelper.WriteError("ERROR: Session name may only contain letters, digits, '_', and '-'.");
+                        } else {
+                            SessionStore.Save(_cfg, _session.CurrentDatabase(), name);
+                            ConsoleHelper.WriteSuccess($"Session saved as '{name}'. Use `dbdb restore {name}` to reconnect.");
+                        }
                         continue;
                     }
                 }

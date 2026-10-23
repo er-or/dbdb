@@ -1,20 +1,30 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace dbdb {
 
     // Persists connection params (no password) to a small JSON file so a
-    // session can be restored later with `dbdb restore`.
+    // session can be restored later with `dbdb restore`, or `dbdb restore
+    // <name>` for one saved under a name via `SAVE SESSION <name>`.
     internal static class SessionStore {
 
-        private const string FileName = ".dbdb_autosave";
+        private const string BaseFileName = ".dbdb_autosave";
+
+        private static readonly Regex NamePattern = new Regex("^[A-Za-z0-9_-]+$");
 
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions {
             WriteIndented = true
         };
 
-        internal static void Save(Config cfg, string? currentDatabase) {
+        // Session names are embedded directly into a file name, so they're
+        // restricted to characters that are always safe there and can't
+        // escape the target directory (e.g. "../../x").
+        internal static bool IsValidName(string name) => NamePattern.IsMatch(name);
+
+        internal static void Save(Config cfg, string? currentDatabase, string? name = null) {
             // SQLite's "current database" is a logical connection name ("main"),
             // not the file path - always persist the actual file path for it.
             string? db = cfg.Type == DbType.Sqlite ? cfg.Database : (currentDatabase ?? cfg.Database);
@@ -31,7 +41,7 @@ namespace dbdb {
             };
             string json = JsonSerializer.Serialize(data, JsonOptions);
 
-            foreach (string path in CandidatePaths()) {
+            foreach (string path in CandidatePaths(name)) {
                 try {
                     // Windows refuses to CREATE_ALWAYS-overwrite an existing hidden
                     // file unless the hidden attribute is passed again, so clear it
@@ -46,8 +56,8 @@ namespace dbdb {
             }
         }
 
-        internal static Config? Load() {
-            foreach (string path in CandidatePaths()) {
+        internal static Config? Load(string? name = null) {
+            foreach (string path in CandidatePaths(name)) {
                 try {
                     if (!File.Exists(path)) continue;
                     string json = File.ReadAllText(path);
@@ -71,12 +81,44 @@ namespace dbdb {
             return null;
         }
 
-        private static string[] CandidatePaths() {
+        // Lists the names of all saved sessions (i.e. ones saved via
+        // `SAVE SESSION <name>`), for reporting back when `dbdb restore <name>`
+        // is given a name that doesn't match anything saved.
+        internal static string[] ListNames() {
+            var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+            string prefix = BaseFileName + ".";
+
+            foreach (string dir in CandidateDirs()) {
+                try {
+                    foreach (string file in Directory.GetFiles(dir, prefix + "*")) {
+                        string suffix = Path.GetFileName(file).Substring(prefix.Length);
+                        if (suffix.Length > 0) names.Add(suffix);
+                    }
+                } catch {
+                    // Directory not readable - skip it.
+                }
+            }
+
+            var result = new string[names.Count];
+            names.CopyTo(result);
+            return result;
+        }
+
+        private static string FileNameFor(string? name) =>
+            string.IsNullOrEmpty(name) ? BaseFileName : BaseFileName + "." + name;
+
+        private static string[] CandidateDirs() {
             string? profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            string cwd = Path.Combine(Directory.GetCurrentDirectory(), FileName);
-            return string.IsNullOrEmpty(profile)
-                ? new[] { cwd }
-                : new[] { Path.Combine(profile, FileName), cwd };
+            string cwd = Directory.GetCurrentDirectory();
+            return string.IsNullOrEmpty(profile) ? new[] { cwd } : new[] { profile, cwd };
+        }
+
+        private static string[] CandidatePaths(string? name) {
+            string fileName = FileNameFor(name);
+            string[] dirs = CandidateDirs();
+            var paths = new string[dirs.Length];
+            for (int i = 0; i < dirs.Length; i++) paths[i] = Path.Combine(dirs[i], fileName);
+            return paths;
         }
 
         private static void TryClearHidden(string path) {
