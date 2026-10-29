@@ -9,7 +9,8 @@ namespace dbdb {
 
     // Writes mysqldump-style SQL for `export table` (deliberately not shelling out
     // to the real mysqldump binary, so the output format stays stable enough for a
-    // future `import` command to read back) and plain JSON for `export view ... as json`.
+    // future `import` command to read back), plus plain JSON or CSV for
+    // `export view|query ... as json|csv`.
     internal static class Exporter {
 
         internal static void ExportTable(DbSession session, DbType type, string tableName, string filePath) {
@@ -61,6 +62,44 @@ namespace dbdb {
             WriteRowsAsJson(columns, rows, filePath);
             ConsoleHelper.WriteSuccess($"Exported {rows.Count} row(s) from query to '{filePath}'.");
         }
+
+        internal static void ExportViewAsCsv(DbSession session, DbType type, string viewName, string filePath) {
+            string qView = QuoteIdent(type, viewName);
+            var (columns, rows) = session.ExecuteQuery($"SELECT * FROM {qView};");
+            WriteRowsAsCsv(columns, rows, filePath);
+            ConsoleHelper.WriteSuccess($"Exported {rows.Count} row(s) from view '{viewName}' to '{filePath}'.");
+        }
+
+        internal static void ExportQueryAsCsv(DbSession session, string query, string filePath) {
+            var (columns, rows) = session.ExecuteQuery(query);
+            WriteRowsAsCsv(columns, rows, filePath);
+            ConsoleHelper.WriteSuccess($"Exported {rows.Count} row(s) from query to '{filePath}'.");
+        }
+
+        // RFC 4180: header row, CRLF line endings, fields quoted only when needed.
+        // NULL becomes an empty field (indistinguishable from '' - CSV has no null).
+        private static void WriteRowsAsCsv(string[] columns, List<object?[]> rows, string filePath) {
+            var sb = new StringBuilder();
+            sb.Append(string.Join(",", Array.ConvertAll(columns, CsvEscape))).Append("\r\n");
+            foreach (var row in rows) {
+                sb.Append(string.Join(",", Array.ConvertAll(row, v => CsvEscape(FormatCsvValue(v))))).Append("\r\n");
+            }
+            File.WriteAllText(filePath, sb.ToString());
+        }
+
+        private static string FormatCsvValue(object? val) => val switch {
+            null          => "",
+            bool b        => b ? "1" : "0",
+            DateTime dt   => dt.ToString("yyyy-MM-dd HH:mm:ss"),
+            byte[] bytes  => "0x" + Convert.ToHexString(bytes),
+            IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
+            _             => val.ToString() ?? ""
+        };
+
+        private static string CsvEscape(string s) =>
+            s.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0
+                ? "\"" + s.Replace("\"", "\"\"") + "\""
+                : s;
 
         private static void WriteRowsAsJson(string[] columns, List<object?[]> rows, string filePath) {
             var list = new List<Dictionary<string, object?>>(rows.Count);

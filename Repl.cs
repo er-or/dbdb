@@ -16,11 +16,11 @@ namespace dbdb {
         private static readonly Regex ExportTableRegex =
             new Regex(@"^EXPORT\s+TABLE\s+(\S+)\s+TO\s+(\S+)\s*;?$", RegexOptions.IgnoreCase);
 
-        private static readonly Regex ExportViewJsonRegex =
-            new Regex(@"^EXPORT\s+VIEW\s+(\S+)\s+AS\s+JSON\s+TO\s+(\S+)\s*;?$", RegexOptions.IgnoreCase);
+        private static readonly Regex ExportViewRegex =
+            new Regex(@"^EXPORT\s+VIEW\s+(\S+)\s+AS\s+(JSON|CSV)\s+TO\s+(\S+)\s*;?$", RegexOptions.IgnoreCase);
 
-        private static readonly Regex ExportQueryJsonRegex =
-            new Regex(@"^EXPORT\s+QUERY\s+""([^""]*)""\s+AS\s+JSON\s+TO\s+(\S+)\s*;?$", RegexOptions.IgnoreCase);
+        private static readonly Regex ExportQueryRegex =
+            new Regex(@"^EXPORT\s+QUERY\s+""([^""]*)""\s+AS\s+(JSON|CSV)\s+TO\s+(\S+)\s*;?$", RegexOptions.IgnoreCase);
 
         private static readonly Regex ShowCommandsRegex =
             new Regex(@"^SHOW\s+COMMANDS(?:\s+LIKE\s+'([^']*)')?\s*;?$", RegexOptions.IgnoreCase);
@@ -128,14 +128,16 @@ namespace dbdb {
                     }
                 }
 
-                // EXPORT VIEW name AS JSON TO file
+                // EXPORT VIEW name AS JSON|CSV TO file
                 if (!continuation) {
-                    var exportViewMatch = ExportViewJsonRegex.Match(trimmed);
+                    var exportViewMatch = ExportViewRegex.Match(trimmed);
                     if (exportViewMatch.Success) {
                         string viewName = exportViewMatch.Groups[1].Value.Trim('`', '[', ']', '"', ';');
-                        string filePath = exportViewMatch.Groups[2].Value.Trim('\'', '"', ';');
+                        bool asCsv = exportViewMatch.Groups[2].Value.Equals("CSV", StringComparison.OrdinalIgnoreCase);
+                        string filePath = exportViewMatch.Groups[3].Value.Trim('\'', '"', ';');
                         try {
-                            Exporter.ExportViewAsJson(_session, _cfg.Type, viewName, filePath);
+                            if (asCsv) Exporter.ExportViewAsCsv(_session, _cfg.Type, viewName, filePath);
+                            else       Exporter.ExportViewAsJson(_session, _cfg.Type, viewName, filePath);
                         } catch (Exception ex) {
                             ConsoleHelper.WriteError("ERROR: " + ex.Message);
                         }
@@ -143,14 +145,16 @@ namespace dbdb {
                     }
                 }
 
-                // EXPORT QUERY "sql" AS JSON TO file
+                // EXPORT QUERY "sql" AS JSON|CSV TO file
                 if (!continuation) {
-                    var exportQueryMatch = ExportQueryJsonRegex.Match(trimmed);
+                    var exportQueryMatch = ExportQueryRegex.Match(trimmed);
                     if (exportQueryMatch.Success) {
                         string query = exportQueryMatch.Groups[1].Value;
-                        string filePath = exportQueryMatch.Groups[2].Value.Trim('\'', '"', ';');
+                        bool asCsv = exportQueryMatch.Groups[2].Value.Equals("CSV", StringComparison.OrdinalIgnoreCase);
+                        string filePath = exportQueryMatch.Groups[3].Value.Trim('\'', '"', ';');
                         try {
-                            Exporter.ExportQueryAsJson(_session, query, filePath);
+                            if (asCsv) Exporter.ExportQueryAsCsv(_session, query, filePath);
+                            else       Exporter.ExportQueryAsJson(_session, query, filePath);
                         } catch (Exception ex) {
                             ConsoleHelper.WriteError("ERROR: " + ex.Message);
                         }
